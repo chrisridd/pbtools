@@ -207,24 +207,59 @@ fn list(themefile: &PathBuf) -> () {
             return;
         }
         Ok(headers) => {
-            println!("resource                                                    size  compressed  verbose");
-            println!("-----------------------------------------------------------------------------------------------------------");
+            // loop through first to find column widths
+            let mut verboses = Vec::new();
+            let mut max_resource = "resource".len();
+            let mut max_size = 9999usize;
+            let mut max_csize = 999999999999999usize;
+            let mut max_verbose = "verbose".len();
             for header in &headers {
                 let res = match read_resource(&mut reader, header) {
                     Ok(res) => res,
                     Err(e) => panic!("Error {}", e),
                 };
                 let kind = ResourceKind::kind_of(header, &res);
-                println!(
-                    "{:<52}  {:>10}  {:>10}  {}",
-                    header.name,
-                    header.size,
-                    header.compressed_size,
-                    kind.to_string()
+                verboses.push(kind.to_string().clone());
+                if header.name.len() > max_resource {
+                    max_resource = header.name.len();
+                }
+                if header.size as usize > max_size {
+                    max_size = header.size as usize;
+                }
+                if header.compressed_size as usize > max_csize {
+                    max_csize = header.compressed_size as usize;
+                }
+                if kind.to_string().len() > max_verbose {
+                    max_verbose = kind.to_string().len();
+                }
+            }
+            // Loop through second time to print the table
+            max_size = digits_len(max_size);
+            max_csize = digits_len(max_csize);
+            println!("{:<rwidth$}  {:>swidth$}  {:>cwidth$}  {}",
+                     "resource",
+                     "size",
+                     "compressed size",
+                     "verbose",
+                     rwidth = max_resource, swidth = max_size, cwidth = max_csize,
+            );
+            println!("{}",
+                     "-".repeat(max_resource + 2 + max_size + 2 + max_csize + 2 + max_verbose));
+            let mut i = 0;
+            for header in &headers {
+                println!("{:<rwidth$}  {:>swidth$}  {:>cwidth$}  {}",
+                         header.name, header.size, header.compressed_size, verboses[i],
+                         rwidth = max_resource, swidth = max_size, cwidth = max_csize,
                 );
+                i = i + 1;
             }
         }
     }
+}
+
+fn digits_len(val: usize) -> usize {
+    let str = format!("{}", val);
+    str.len()
 }
 
 fn unpack(themefile: &PathBuf, resource: &String) -> () {
