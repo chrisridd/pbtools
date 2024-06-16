@@ -1,0 +1,11 @@
+[package]
+name = "pbtools"
+version = "0.1.0"
+authors = [ "Chris Ridd <chrisridd@mac.com>" ]
+license = "BSD-3-Clause"
+edition = "2021"
+
+[dependencies]
+yazi = "0.2.0"
+image = { version = "0.25.1", features = ["bmp", "png", "tiff"] }
+clap = { version = "4.5.7", features = ["cargo"] }
