@@ -1,6 +1,6 @@
 [package]
 name = "pbtools"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "Chris Ridd <chrisridd@mac.com>" ]
 license = "BSD-3-Clause"
 edition = "2021"

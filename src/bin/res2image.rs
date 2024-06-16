@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use clap::{command, value_parser, Arg, ArgAction, ArgGroup, crate_authors, crate_version};
+use clap::{command, crate_authors, crate_version, value_parser, Arg, ArgAction, ArgGroup};
 use image::{ImageError, Rgb, RgbImage};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -366,7 +366,8 @@ fn convert(src: &PathBuf, format: Format) -> Result<(), ConvertError> {
     let scanline = u16::from_le_bytes([header[6], header[7]]);
     if w < 1 || w > 8192 || h < 1 || h > 8192 {
         return Err(ConvertError::Format(format!(
-            "File may not be a bitmap resource as w is {} and h is {}", w, h
+            "File may not be a bitmap resource as w is {} and h is {}",
+            w, h
         )));
     }
     if bpp != 8 {

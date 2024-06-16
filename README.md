@@ -2,14 +2,19 @@
 PocketBook Ereader Tools
 
 This is a small set of tools for users of PocketBook ereaders. In particular they are
-meant for working with PocketBook "theme" files, which have a ".pbt" extension.
+meant for working with PocketBook theme files, which have a ".pbt" extension.
 
 The tools are written in rust for portability and safety.
 
 * `rpbres` - this is (yet another) reimplementation of the `pbres` tool from PocketBook,
-  which currently just allows you to list the contents of a theme file;
+  which currently allows you to list the contents of a theme file, and unpack (extract)
+  a resource;
 * `res2image` - this is a small tool to convert a bitmap resource from a theme into a
   more useful image format, such as PNG.
+
+Both tools have `-h/--help` and `-V/--version` options. 
+
+Currently `rpbres` has `-l/list` and `-u/unpack` subcommands.
 
 The output of `rpbres -l` (list) is slightly different from the other tools, in that it
 tries to guess the format of each resource. For example:
@@ -32,15 +37,27 @@ adobe_activation_layout:4                                  11342        1170  JS
 [...]
 ```
 
-Currently `rpbres` only has a working `-l/list` subcommand, but all the code is there to
-implement `-u/unpack` as well.
-
 `res2image` is very simple. Once you've unpacked a resource from a theme file (eg
-`about:4`) then you'll want to convert it to something useful. Currently you'll need to
-unpack the resource using another tool, such as `pbres` from @Enyby.
+`about:4`) then you'll want to convert it to something useful.
 
 ```
+$ rpbres -u "../InkPad Color 3/Line.pbt" about:4
+$ file about:4
+about:4: data
 $ res2image --png about:4
+$ file about:4.png
+about:4.png: PNG image data, 122 x 122, 8-bit/color RGB, non-interlaced
 ```
 
-You will end up with a file called `about:4.png`.
+You will end up with a file called `about:4.png`. Mac users will notice that the Finder
+and other GUI applications will display the filename with a slash instead of a colon, ie
+`about/4.png`. This is nothing to worry about.
+
+The theme configuration file (usually the first file in the `-l` output) has an empty name.
+Unpacking will save it into a file called `theme.cfg`.
+
+```
+$ rpbres -u "../InkPad Color 3/Line.pbt" ""
+$ file theme.cfg
+theme.cfg: ASCII text
+```

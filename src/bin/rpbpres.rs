@@ -25,11 +25,11 @@
 
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{self, BufReader, Read, Seek};
+use std::io::{self, BufReader, BufWriter, Read, Seek, Write};
 use std::path::PathBuf;
 
 use clap;
-use clap::{command, value_parser, Arg, crate_authors, crate_version, Command};
+use clap::{command, crate_authors, crate_version, value_parser, Arg, Command};
 use yazi::*;
 
 /// Application error handling
@@ -115,11 +115,13 @@ impl ResourceKind {
     }
 }
 
-fn list_pbt<R: Read + Seek>(reader: &mut R) -> Result<Vec<ResourceHeader>, ThemeError> {
+fn read_headers<R: Read + Seek>(reader: &mut R) -> Result<Vec<ResourceHeader>, ThemeError> {
     let mut fingerprint = [0u8; 15];
     reader.read_exact(&mut fingerprint)?;
     if fingerprint != "PocketBookTheme".as_bytes() {
-        return Err(ThemeError::Format(String::from("File does not start PocketBookTheme")));
+        return Err(ThemeError::Format(String::from(
+            "File does not start PocketBookTheme",
+        )));
     }
     let mut version = [0u8; 1];
     reader.read_exact(&mut version)?;
@@ -190,19 +192,101 @@ fn read_resource_header<R: Read>(
     })
 }
 
+fn list(themefile: &PathBuf) -> () {
+    let mut reader: BufReader<File> = match File::open(themefile) {
+        Err(why) => {
+            eprintln!("couldn't open {}: {}", themefile.display(), why);
+            return;
+        }
+        Ok(file) => BufReader::new(file),
+    };
+
+    match read_headers(&mut reader) {
+        Err(why) => {
+            eprintln!("Error: {}", why);
+            return;
+        }
+        Ok(headers) => {
+            println!("resource                                                    size  compressed  verbose");
+            println!("-----------------------------------------------------------------------------------------------------------");
+            for header in &headers {
+                let res = match read_resource(&mut reader, header) {
+                    Ok(res) => res,
+                    Err(e) => panic!("Error {}", e),
+                };
+                let kind = ResourceKind::kind_of(header, &res);
+                println!(
+                    "{:<52}  {:>10}  {:>10}  {}",
+                    header.name,
+                    header.size,
+                    header.compressed_size,
+                    kind.to_string()
+                );
+            }
+        }
+    }
+}
+
+fn unpack(themefile: &PathBuf, resource: &String) -> () {
+    let mut reader: BufReader<File> = match File::open(themefile) {
+        Err(why) => {
+            eprintln!("couldn't open {}: {}", themefile.display(), why);
+            return;
+        }
+        Ok(file) => BufReader::new(file),
+    };
+
+    match read_headers(&mut reader) {
+        Err(why) => {
+            eprintln!("Error: {}", why);
+            return;
+        }
+        Ok(headers) => {
+            for header in &headers {
+                if header.name == *resource {
+                    let res = match read_resource(&mut reader, header) {
+                        Ok(res) => res,
+                        Err(e) => {
+                            eprintln!("Error {}", e);
+                            return;
+                        }
+                    };
+                    let filename = if resource.is_empty() {
+                        PathBuf::from("theme.cfg")
+                    } else {
+                        PathBuf::from(resource)
+                    };
+                    let mut file = match File::create(filename) {
+                        Err(e) => {
+                            eprintln!("Error creating file {}", e);
+                            return;
+                        }
+                        Ok(file) => BufWriter::new(file),
+                    };
+                    match file.write_all(&*res) {
+                        Err(e) => {
+                            eprintln!("Error writing file {}", e);
+                            return;
+                        }
+                        Ok(_) => return,
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     let args = command!()
         .about("List PocketBook themes and extract theme resources")
         .author(crate_authors!("\n"))
         .version(crate_version!())
         .subcommand(
-            Command::new("-l")
-                .about("List theme resources")
-                .arg(
-                    Arg::new("theme-file")
-                        .value_parser(value_parser!(PathBuf))
-                        .required(true),
-                )
+            Command::new("-l").about("List theme resources").arg(
+                Arg::new("theme-file")
+                    .value_parser(value_parser!(PathBuf))
+                    .required(true),
+            ),
         )
         .subcommand(
             Command::new("-u")
@@ -212,41 +296,17 @@ fn main() {
                         .value_parser(value_parser!(PathBuf))
                         .required(true),
                 )
-                .arg(
-                    Arg::new("resource-name")
-                        .required(true),
-                )
+                .arg(Arg::new("resource-name").required(true)),
         )
         .disable_help_subcommand(true)
         .get_matches();
 
     if let Some(list_args) = args.subcommand_matches("-l") {
-        let filename = list_args.get_one::<PathBuf>("theme-file").unwrap();
-        let mut reader: BufReader<File> = match File::open(filename) {
-            Err(why) => panic!("couldn't open {}: {}", filename.display(), why),
-            Ok(file) => BufReader::new(file),
-        };
-
-        match list_pbt(&mut reader) {
-            Err(why) => eprintln!("Error: {}", why),
-            Ok(headers) => {
-                println!("resource                                                    size  compressed  verbose");
-                println!("-----------------------------------------------------------------------------------------------------------");
-                for header in &headers {
-                    let res = match read_resource(&mut reader, header) {
-                        Ok(res) => res,
-                        Err(e) => panic!("Error {}", e),
-                    };
-                    let kind = ResourceKind::kind_of(header, &res);
-                    println!(
-                        "{:<52}  {:>10}  {:>10}  {}",
-                        header.name,
-                        header.size,
-                        header.compressed_size,
-                        kind.to_string()
-                    );
-                }
-            }
-        }
+        list(list_args.get_one::<PathBuf>("theme-file").unwrap());
+    } else if let Some(unpack_args) = args.subcommand_matches("-u") {
+        unpack(
+            unpack_args.get_one::<PathBuf>("theme-file").unwrap(),
+            unpack_args.get_one::<String>("resource-name").unwrap(),
+        );
     }
 }
