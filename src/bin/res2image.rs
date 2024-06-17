@@ -370,9 +370,9 @@ fn convert(src: &PathBuf, format: Format) -> Result<(), ConvertError> {
             w, h
         )));
     }
-    if bpp != 8 {
+    if bpp != 8 && bpp != 24 {
         return Err(ConvertError::Format(format!(
-            "Only 8bpp resources are supported, this is {}bpp",
+            "Only 8bpp and 24bpp resources are supported, this is {}bpp",
             bpp
         )));
     }
@@ -382,8 +382,14 @@ fn convert(src: &PathBuf, format: Format) -> Result<(), ConvertError> {
     for y in 0..h {
         reader.read_exact(&mut scanline)?;
         for x in 0..w {
-            let pixel = scanline[x as usize];
-            let colour: Rgb<u8> = pixel_to_rgb(pixel);
+            let colour = match bpp {
+                8 => pixel_to_rgb(scanline[x as usize]),
+                24 => {
+                    let i = x as usize * 3;
+                    Rgb([scanline[i + 0], scanline[i + 1], scanline[i + 2]])
+                }
+                _ => panic!("Unexpected bits per pixel {}", bpp),
+            };
             image.put_pixel(x as u32, y as u32, colour);
         }
     }
