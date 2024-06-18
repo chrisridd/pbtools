@@ -262,7 +262,7 @@ fn digits_len(val: usize) -> usize {
     str.len()
 }
 
-fn unpack(themefile: &PathBuf, resource: &String) -> () {
+fn unpack(themefile: &PathBuf, resources: Vec<&String>) -> () {
     let mut reader: BufReader<File> = match File::open(themefile) {
         Err(why) => {
             eprintln!("couldn't open {}: {}", themefile.display(), why);
@@ -278,7 +278,7 @@ fn unpack(themefile: &PathBuf, resource: &String) -> () {
         }
         Ok(headers) => {
             for header in &headers {
-                if header.name == *resource {
+                if resources.contains(&&header.name) {
                     let res = match read_resource(&mut reader, header) {
                         Ok(res) => res,
                         Err(e) => {
@@ -286,10 +286,10 @@ fn unpack(themefile: &PathBuf, resource: &String) -> () {
                             return;
                         }
                     };
-                    let filename = if resource.is_empty() {
+                    let filename = if header.name.is_empty() {
                         PathBuf::from("theme.cfg")
                     } else {
-                        PathBuf::from(resource)
+                        PathBuf::from(&header.name)
                     };
                     let mut file = match File::create(filename) {
                         Err(e) => {
@@ -303,7 +303,7 @@ fn unpack(themefile: &PathBuf, resource: &String) -> () {
                             eprintln!("Error writing file {}", e);
                             return;
                         }
-                        Ok(_) => return,
+                        Ok(_) => { },
                     }
                 }
             }
@@ -331,7 +331,7 @@ fn main() {
                         .value_parser(value_parser!(PathBuf))
                         .required(true),
                 )
-                .arg(Arg::new("resource-name").required(true)),
+                .arg(Arg::new("resource-name").required(true).num_args(1..)),
         )
         .disable_help_subcommand(true)
         .get_matches();
@@ -341,7 +341,10 @@ fn main() {
     } else if let Some(unpack_args) = args.subcommand_matches("-u") {
         unpack(
             unpack_args.get_one::<PathBuf>("theme-file").unwrap(),
-            unpack_args.get_one::<String>("resource-name").unwrap(),
+            unpack_args.get_many::<String>("resource-name")
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
         );
     }
 }
