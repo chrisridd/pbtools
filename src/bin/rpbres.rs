@@ -80,9 +80,15 @@ impl ResourceKind {
         if bytes.len() > 8 {
             let w = u16::from_le_bytes([bytes[0], bytes[1]]);
             let h = u16::from_le_bytes([bytes[2], bytes[3]]);
-            let bpp = u16::from_le_bytes([bytes[4], bytes[5]]) & 0x7fff;
+            let rawbpp = u16::from_le_bytes([bytes[4], bytes[5]]);
+            let bpp = rawbpp & 0x7fff;
+            let transparent = if rawbpp >= 0x8000 {
+                " *"
+            } else {
+                ""
+            };
             if w > 0 && w < 4096 && h > 0 && h < 4096 && bpp > 0 && bpp < 256 {
-                return ResourceKind::Bitmap(format!("Bitmap {} x {} {}bpp", w, h, bpp));
+                return ResourceKind::Bitmap(format!("Bitmap {} x {} {}bpp{}", w, h, bpp, transparent));
             }
         }
         if bytes.len() > 2 {
